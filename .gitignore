@@ -1,0 +1,4 @@
+*.exe
+/barerepo*
+senv.bat
+a
