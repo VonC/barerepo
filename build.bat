@@ -10,6 +10,7 @@ call  "%script_dir%\echos_macros.bat"
 setlocal enabledelayedexpansion
 for %%i in ("%~dp0.") do SET "dirname=%%~ni"
 
+if not exist "%script_dir%\senv.bat" ( copy "%script_dir%\senv.bat.tpl" "%script_dir%\senv.bat" )
 if exist "%script_dir%\senv.bat" ( call "%script_dir%\senv.bat" )
 
 if "%1" == "rel" ( 
@@ -123,7 +124,7 @@ if "%1" == "amd" (
     set GOARCH=amd64
     set GOOS=linux
     set "outputname=%dirname%_%appver%"
-    %_info% "AMD build requested for ldapserver"
+    %_info% "AMD build requested for %dirname%"
     set "fflag=-gcflags="all=-N -l" "
 )
 
@@ -131,5 +132,5 @@ if "%1" == "amd" (
 go build %fflag%-ldflags "-X %dirname%/version.GitTag=%gitver% -X %dirname%/version.BuildUser=%USERNAME% -X %dirname%/version.Version=%VERSION% -X %dirname%/version.BuildDate=%dtStamp%" -o %outputname%
 
 if errorlevel 1 (
-    %_fatal% "ERROR BUILD ldapserver" 3
+    %_fatal% "ERROR BUILD %dirname%" 3
 )
