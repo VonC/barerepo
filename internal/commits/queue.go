@@ -1,8 +1,10 @@
 package commits
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sync"
 
 	"github.com/VonC/barerepo/internal/filequeue"
@@ -39,7 +41,7 @@ func NewQueue(basedir string, fs hackpadfs.FS, process func(*Commit)) (*queue, e
 	}
 	l, err := q.fq.Len()
 	if err == nil && l > 0 {
-		fmt.Println("Init fileonly true: files detected")
+		Printf(fmt.Sprintf("Init fileonly true: files detected"))
 		q.state.fileOnly = true
 	}
 	return q, nil
@@ -49,18 +51,18 @@ func NewQueue(basedir string, fs hackpadfs.FS, process func(*Commit)) (*queue, e
 func (q *queue) Add(c *Commit) error {
 	q.state.RLock()
 	defer q.state.RUnlock()
-	fmt.Printf("ADD: Add commit %s\n", c)
+	Printf(fmt.Sprintf("ADD: Add commit %s\n", c))
 	if q.state.fileOnly {
-		fmt.Printf("ADD: fileonly\n")
+		Printf(fmt.Sprintf("ADD: fileonly\n"))
 		return q.save(c)
 	}
 	select {
 	case q.commitChan <- c:
-		fmt.Printf("ADD: Commit sent to queue '%s'\n", c)
+		Printf(fmt.Sprintf("ADD: Commit sent to queue '%s'\n", c))
 		return nil
 	default:
 		q.state.fileOnly = true
-		fmt.Printf("ADD: set fileony, save '%s'\n", c)
+		Printf(fmt.Sprintf("ADD: set fileony, save '%s'\n", c))
 		return q.save(c)
 	}
 }
@@ -76,7 +78,7 @@ func (q *queue) save(c *Commit) error {
 	if err == nil {
 		err = q.fq.Push(b)
 	}
-	fmt.Printf("save: b: '%s', err '%+v'\n", string(b), err)
+	Printf(fmt.Sprintf("save: b: '%s', err '%+v'\n", string(b), err))
 	return err
 }
 
@@ -90,17 +92,17 @@ func (q *queue) Run() {
 			select {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
-				fmt.Printf("Number commits left in channel: %d\n", len(q.commitChan))
+				Printf(fmt.Sprintf("Number commits left in channel: %d\n", len(q.commitChan)))
 				q.state.RUnlock()
 				return
 			case c = <-q.commitChan:
-				fmt.Printf("RUN: Commit received '%s'\n", c)
+				Printf(fmt.Sprintf("RUN: Commit received '%s'\n", c))
 			default:
 				if c == nil {
 					c = q.load()
 					if c == nil {
 						if q.state.fileOnly {
-							fmt.Println("Reset fileOnly to false")
+							Printf(fmt.Sprintf("Reset fileOnly to false"))
 							q.state.fileOnly = false
 						}
 					}
@@ -121,7 +123,7 @@ func (q *queue) process(c *Commit) {
 	if c == nil {
 		return
 	}
-	fmt.Printf("Processing %s\n", c)
+	Printf(fmt.Sprintf("Processing %s\n", c))
 	if q.processFunc != nil {
 		q.processFunc(c)
 	}
@@ -137,10 +139,20 @@ func (q *queue) load() *Commit {
 	if b == nil && err == nil {
 		return nil
 	}
-	fmt.Printf("load: Commit loaded '%s', err='%+v'\n", res, err)
+	Printf(fmt.Sprintf("load: Commit loaded '%s', err='%+v'\n", res, err))
 	if err != nil {
 		return nil
 	}
 	q.state.fileOnly = true
 	return res
+}
+
+func Printf(msg string) {
+	// https://github.com/golang/go/issues/36619
+	bufStdout := bufio.NewWriter(os.Stdout)
+	_, err := bufStdout.WriteString(msg)
+	defer bufStdout.Flush()
+	if err == nil {
+		fmt.Fprintf(bufStdout, "\n")
+	}
 }
