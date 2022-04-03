@@ -37,6 +37,11 @@ func NewQueue(basedir string, fs hackpadfs.FS, process func(*Commit)) (*queue, e
 		fq:          fq,
 		processFunc: process,
 	}
+	l, err := q.fq.Len()
+	if err == nil && l > 0 {
+		fmt.Println("Init fileonly true: files detected")
+		q.state.fileOnly = true
+	}
 	return q, nil
 }
 
