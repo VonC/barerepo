@@ -29,6 +29,8 @@ func New(baseDir string, fs hackpadfs.FS) (Queue, error) {
 		return nil, err
 	}
 
+	baseDir = strings.ReplaceAll(baseDir, "c:\\", "")
+
 	fq := &FileQueue{
 		baseDir: baseDir,
 		fs:      fs,
