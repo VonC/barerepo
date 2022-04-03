@@ -8,7 +8,7 @@ import (
 	"github.com/hack-pad/hackpadfs"
 )
 
-type job struct {
+type commit struct {
 	message   string
 	timestamp time.Time
 }
@@ -19,7 +19,7 @@ type Queue interface {
 }
 
 type queue struct {
-	jobChan    chan *job
+	commitChan chan *commit
 	cancelChan chan struct{}
 	state      *state
 	q          filequeue.Queue
@@ -31,7 +31,7 @@ func NewQueue(basedir string, fs hackpadfs.FS) (*queue, error) {
 		return nil, err
 	}
 	return &queue{
-		jobChan:    make(chan *job, 1),
+		commitChan: make(chan *commit, 1),
 		cancelChan: make(chan struct{}),
 		state:      &state{},
 		q:          q,
@@ -42,7 +42,7 @@ func NewQueue(basedir string, fs hackpadfs.FS) (*queue, error) {
 func (q *queue) Add(message string, t time.Time) error {
 	q.state.Lock()
 	defer q.state.RUnlock()
-	j := &job{
+	j := &commit{
 		message:   message,
 		timestamp: t,
 	}
@@ -50,7 +50,7 @@ func (q *queue) Add(message string, t time.Time) error {
 		return q.save(j)
 	}
 	select {
-	case q.jobChan <- j:
+	case q.commitChan <- j:
 		return nil
 	default:
 		q.state.fileOnly = true
@@ -64,7 +64,7 @@ type state struct {
 	fileOnly bool
 }
 
-func (q *queue) save(j *job) error {
+func (q *queue) save(j *commit) error {
 	return nil
 }
 
@@ -72,7 +72,7 @@ func (q *queue) save(j *job) error {
 func (q *queue) Run() {
 	// https://www.opsdash.com/blog/job-queues-in-go.html
 	go func() {
-		var j *job
+		var j *commit
 		for {
 			q.state.Lock()
 			defer q.state.RUnlock()
@@ -80,7 +80,7 @@ func (q *queue) Run() {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
 				return
-			case j = <-q.jobChan:
+			case j = <-q.commitChan:
 			default:
 				j = q.load()
 			}
@@ -90,13 +90,13 @@ func (q *queue) Run() {
 	}()
 }
 
-func (q *queue) process(j *job) {
+func (q *queue) process(j *commit) {
 	if j == nil {
 		return
 	}
 	return
 }
 
-func (q *queue) load() *job {
+func (q *queue) load() *commit {
 	return nil
 }
