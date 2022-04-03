@@ -2,19 +2,41 @@ package commits_test
 
 import (
 	"fmt"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/VonC/barerepo/internal/commits"
+	"github.com/hack-pad/hackpadfs"
 	"github.com/hack-pad/hackpadfs/os"
 )
 
 func TestQueue(t *testing.T) {
-	fs := os.NewFS()
-	var q commits.Queue
+	ofs := os.NewFS()
 	var err error
-	if q, err = commits.NewQueue("test", fs, process); err != nil {
-		t.Errorf("Error on NewQueue: %+v", err)
+
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Errorf("unable to get the current filename")
+	}
+	dirname := filepath.Dir(filename)
+	var ffs hackpadfs.FS
+	dirname = strings.ReplaceAll(dirname, "c:\\", "c/")
+	dirname = strings.ReplaceAll(dirname, "\\", "/")
+	ffs, err = ofs.Sub(dirname)
+	if err != nil {
+		t.Fatalf("Error on fs.Sub: %+v", err)
+	}
+	ofs, ok = ffs.(*os.FS)
+	if !ok {
+		t.Fatalf("unable to get the current FS")
+	}
+
+	var q commits.Queue
+	if q, err = commits.NewQueue("test", ofs, process); err != nil {
+		t.Fatalf("Error on NewQueue: %+v", err)
 	}
 	q.Run()
 	c1 := commits.NewCommit("c1", time.Now())
@@ -23,13 +45,13 @@ func TestQueue(t *testing.T) {
 	q.Add(c1)
 	q.Add(c2)
 	q.Add(c3)
-	time.Sleep(1 * time.Second)
+	time.Sleep(3 * time.Second)
 	q.Stop()
 	time.Sleep(1 * time.Second)
-	fmt.Println("test done")
+	commits.Printf(fmt.Sprintf("test done"))
 }
 
 func process(c *commits.Commit) {
-	fmt.Printf("Process commit %s\n", c.String())
+	commits.Printf(fmt.Sprintf("Process commit %s\n", c.String()))
 	time.Sleep(2 * time.Second)
 }
