@@ -31,12 +31,14 @@ func New(baseDir string, fs hackpadfs.FS) (Queue, error) {
 
 	baseDir = strings.ReplaceAll(baseDir, "c:\\", "")
 
+	err = hackpadfs.MkdirAll(fs, baseDir, hackpadfs.ModeDir)
+
+	//fs, err = hackpadfs.Sub(fs, baseDir)
+
 	fq := &FileQueue{
 		baseDir: baseDir,
 		fs:      fs,
 	}
-
-	err = hackpadfs.MkdirAll(fs, baseDir, hackpadfs.ModeDir)
 
 	return fq, err
 }

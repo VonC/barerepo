@@ -1,60 +1,62 @@
 package commits
 
 import (
+	"encoding/json"
+	"fmt"
 	"sync"
-	"time"
 
 	"github.com/VonC/barerepo/internal/filequeue"
 	"github.com/hack-pad/hackpadfs"
 )
 
-type commit struct {
-	message   string
-	timestamp time.Time
-}
-
 type Queue interface {
-	Add(message string, t time.Time) error
+	Add(c *Commit) error
 	Run()
+	Stop()
 }
 
 type queue struct {
-	commitChan chan *commit
-	cancelChan chan struct{}
-	state      *state
-	q          filequeue.Queue
+	commitChan  chan *Commit
+	cancelChan  chan struct{}
+	state       *state
+	fq          filequeue.Queue
+	processFunc func(*Commit)
 }
 
-func NewQueue(basedir string, fs hackpadfs.FS) (*queue, error) {
-	q, err := filequeue.New(basedir, fs)
+func NewQueue(basedir string, fs hackpadfs.FS, process func(*Commit)) (*queue, error) {
+	fq, err := filequeue.New(basedir, fs)
 	if err != nil {
 		return nil, err
 	}
-	return &queue{
-		commitChan: make(chan *commit, 1),
+	q := &queue{
+		commitChan: make(chan *Commit, 1),
 		cancelChan: make(chan struct{}),
-		state:      &state{},
-		q:          q,
-	}, nil
+		state: &state{
+			fileOnly: false,
+		},
+		fq:          fq,
+		processFunc: process,
+	}
+	return q, nil
 }
 
 // Add a commit to the queue, to be processed (or saved to disk if program stops too soon)
-func (q *queue) Add(message string, t time.Time) error {
-	q.state.Lock()
+func (q *queue) Add(c *Commit) error {
+	q.state.RLock()
 	defer q.state.RUnlock()
-	j := &commit{
-		message:   message,
-		timestamp: t,
-	}
+	fmt.Printf("ADD: Add commit %s\n", c)
 	if q.state.fileOnly {
-		return q.save(j)
+		fmt.Printf("ADD: fileonly\n")
+		return q.save(c)
 	}
 	select {
-	case q.commitChan <- j:
+	case q.commitChan <- c:
+		fmt.Printf("ADD: Commit sent to queue '%s'\n", c)
 		return nil
 	default:
 		q.state.fileOnly = true
-		return q.save(j)
+		fmt.Printf("ADD: set fileony, save '%s'\n", c)
+		return q.save(c)
 	}
 }
 
@@ -64,39 +66,76 @@ type state struct {
 	fileOnly bool
 }
 
-func (q *queue) save(j *commit) error {
-	return nil
+func (q *queue) save(c *Commit) error {
+	b, err := json.Marshal(c)
+	if err == nil {
+		err = q.fq.Push(b)
+	}
+	fmt.Printf("save: b: '%s', err '%+v'\n", string(b), err)
+	return err
 }
 
 // Run starts the queue, waiting for new commits or processing those saved on disk.
 func (q *queue) Run() {
 	// https://www.opsdash.com/blog/job-queues-in-go.html
 	go func() {
-		var j *commit
+		var c *Commit
 		for {
-			q.state.Lock()
-			defer q.state.RUnlock()
+			q.state.RLock()
 			select {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
+				fmt.Printf("Number commits left in channel: %d\n", len(q.commitChan))
+				q.state.RUnlock()
 				return
-			case j = <-q.commitChan:
+			case c = <-q.commitChan:
+				fmt.Printf("RUN: Commit received '%s'\n", c)
 			default:
-				j = q.load()
+				if c == nil {
+					c = q.load()
+					if c == nil {
+						if q.state.fileOnly {
+							fmt.Println("Reset fileOnly to false")
+							q.state.fileOnly = false
+						}
+					}
+				}
 			}
 			q.state.RUnlock()
-			q.process(j)
+			q.process(c)
 		}
 	}()
 }
 
-func (q *queue) process(j *commit) {
-	if j == nil {
+// Stop send a struct to queue cancel channel
+func (q *queue) Stop() {
+	q.cancelChan <- struct{}{}
+}
+
+func (q *queue) process(c *Commit) {
+	if c == nil {
 		return
+	}
+	fmt.Printf("Processing %s\n", c)
+	if q.processFunc != nil {
+		q.processFunc(c)
 	}
 	return
 }
 
-func (q *queue) load() *commit {
-	return nil
+func (q *queue) load() *Commit {
+	b, err := q.fq.Pop()
+	res := &Commit{}
+	if err == nil && b != nil {
+		err = json.Unmarshal(b, res)
+	}
+	if b == nil && err == nil {
+		return nil
+	}
+	fmt.Printf("load: Commit loaded '%s', err='%+v'\n", res, err)
+	if err != nil {
+		return nil
+	}
+	q.state.fileOnly = true
+	return res
 }
