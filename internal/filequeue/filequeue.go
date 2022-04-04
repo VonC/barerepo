@@ -5,13 +5,13 @@ package filequeue
 
 import (
 	"fmt"
+	"io/fs"
 	"math/rand"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
-
-	"github.com/hack-pad/hackpadfs"
 )
 
 // Queue implements a FIFO Queue backed with files so that multiple
@@ -23,7 +23,7 @@ type Queue interface {
 	Push([]byte) error
 }
 
-func New(baseDir string, fs hackpadfs.FS) (Queue, error) {
+func New(baseDir string, ofs fs.FS) (Queue, error) {
 	baseDir, err := filepath.Abs(baseDir)
 	if err != nil {
 		return nil, err
@@ -31,13 +31,13 @@ func New(baseDir string, fs hackpadfs.FS) (Queue, error) {
 
 	baseDir = strings.ReplaceAll(baseDir, "c:\\", "")
 
-	err = hackpadfs.MkdirAll(fs, baseDir, hackpadfs.ModeDir)
+	err = os.MkdirAll(baseDir, fs.ModeDir)
 
-	//fs, err = hackpadfs.Sub(fs, baseDir)
+	//fs, err = os.Sub(fs, baseDir)
 
 	fq := &FileQueue{
 		baseDir: baseDir,
-		fs:      fs,
+		ofs:     ofs,
 	}
 
 	return fq, err
@@ -47,7 +47,7 @@ func New(baseDir string, fs hackpadfs.FS) (Queue, error) {
 // filesystem operations.
 type FileQueue struct {
 	baseDir string
-	fs      hackpadfs.FS
+	ofs     fs.FS
 }
 
 // Len returns the number of items known at this moment in time.
@@ -85,16 +85,16 @@ func (fq *FileQueue) Pop() ([]byte, error) {
 		fullPath := filepath.Join(fq.baseDir, item)
 		tmpPath := fmt.Sprintf("%s.pop-%v", fullPath, rand.Float64())
 
-		if err := hackpadfs.Rename(fq.fs, fullPath, tmpPath); err != nil {
+		if err := os.Rename(fullPath, tmpPath); err != nil {
 			continue
 		}
 
-		itemBytes, err := hackpadfs.ReadFile(fq.fs, tmpPath)
+		itemBytes, err := os.ReadFile(tmpPath)
 		if err != nil {
 			return nil, err
 		}
 
-		if err := hackpadfs.Remove(fq.fs, tmpPath); err != nil {
+		if err := os.Remove(tmpPath); err != nil {
 			return nil, err
 		}
 
@@ -112,18 +112,17 @@ func (fq *FileQueue) Push(b []byte) error {
 		fmt.Sprintf("%v.item", time.Now().UnixNano()),
 	)
 
-	var f hackpadfs.File
 	var err error
-	if f, err = hackpadfs.Create(fq.fs, fullPath); err != nil {
+	if _, err = os.Create(fullPath); err != nil {
 		return err
 	}
 
-	_, err = hackpadfs.WriteFile(f, b)
+	err = os.WriteFile(fullPath, b, 0755)
 	return err
 }
 
 func (fq *FileQueue) listItemsSorted() ([]string, error) {
-	dirEnts, err := hackpadfs.ReadDir(fq.fs, fq.baseDir)
+	dirEnts, err := os.ReadDir(fq.baseDir)
 	if err != nil {
 		return nil, err
 	}

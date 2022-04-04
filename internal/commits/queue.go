@@ -4,11 +4,11 @@ import (
 	"bufio"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"os"
 	"sync"
 
 	"github.com/VonC/barerepo/internal/filequeue"
-	"github.com/hack-pad/hackpadfs"
 )
 
 type Queue interface {
@@ -25,7 +25,7 @@ type queue struct {
 	processFunc func(*Commit)
 }
 
-func NewQueue(basedir string, fs hackpadfs.FS, process func(*Commit)) (*queue, error) {
+func NewQueue(basedir string, fs fs.FS, process func(*Commit)) (*queue, error) {
 	fq, err := filequeue.New(basedir, fs)
 	if err != nil {
 		return nil, err
