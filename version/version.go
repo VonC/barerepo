@@ -58,13 +58,23 @@ func String(verlevel int, versionFS embed.FS) string {
 		//spew.Dump(info)
 	}
 	if verlevel >= 3 {
-		if GitTag != "" && BuildUser != "" && BuildDate != "" {
+		if GitTag != "" || BuildUser != "" || BuildDate != "" {
 			res = res + "\n"
-			res = res + fmt.Sprintf("Git Tag   : %s\n", GitTag)
-			res = res + fmt.Sprintf("Build User: %s\n", BuildUser)
-			res = res + fmt.Sprintf("BuildDate : %s\n", BuildDate)
+			l := len("Build User")
+			res = res + pflag("Git Tag", GitTag, l)
+			res = res + pflag("Build User", BuildUser, l)
+			res = res + pflag("BuildDate", BuildDate, l)
 		}
 	}
+	return res
+}
+
+func pflag(prefix, value string, l int) string {
+	res := ""
+	if value == "" {
+		return ""
+	}
+	res = fmt.Sprintf("%s%s: %s\n", prefix, strings.Repeat(" ", l-len(prefix)), value)
 	return res
 }
 
