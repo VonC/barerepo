@@ -13,6 +13,19 @@ for %%i in ("%~dp0.") do SET "dirname=%%~ni"
 if not exist "%script_dir%\senv.bat" ( copy "%script_dir%\senv.bat.tpl" "%script_dir%\senv.bat" )
 if exist "%script_dir%\senv.bat" ( call "%script_dir%\senv.bat" )
 
+for /f "delims=" %%i in ('type "%script_dir%\go.mod"') do (
+    if "!module_name!" == "" (
+        set "module_name=%%i"
+        goto:fldone
+    )
+)
+:fldone
+set "module_name=%module_name:module =%"
+echo module_name='%module_name%'
+if "%module_name%" == "" (
+        %_fatal% "go.mod in '%script_dir%' does not include a module name" 66
+)
+
 if "%1" == "rel" ( 
     sed -i "s/-SNAPSHOT//g" "version\version.txt"
     shift
@@ -126,12 +139,12 @@ if "%1" == "amd" (
     set GOARCH=amd64
     set GOOS=linux
     set "outputname=%dirname%_%appver%"
-    %_info% "AMD build requested for %dirname%"
+    %_info% "AMD build requested for %module_name%"
     set "fflag=-gcflags="all=-N -l" "
 )
 
 %_info% "Start Building"
-go build %fflag%-ldflags "-X %dirname%/version.GitTag=%gitver% -X %dirname%/version.BuildUser=%USERNAME% -X %dirname%/version.Version=%VERSION% -X %dirname%/version.BuildDate=%dtStamp%" -o %outputname%
+go build %fflag%-ldflags "-X %module_name%/version.GitTag=%gitver% -X %module_name%/version.BuildUser=%USERNAME% -X %module_name%/version.Version=%VERSION% -X %module_name%/version.BuildDate=%dtStamp%" -o %outputname%
 
 if errorlevel 1 (
     %_fatal% "ERROR BUILD %dirname%" 3
