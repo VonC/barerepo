@@ -18,6 +18,8 @@ var (
 
 // String displays all the version values
 func String(verlevel int, versionFS embed.FS) string {
+	// https://github.com/golang/go/issues/41191
+	// https://stackoverflow.com/a/67357103/6309
 	res := Version(versionFS)
 	if strings.HasPrefix(res, "Unknown") == false {
 		res = "v" + res
