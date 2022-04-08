@@ -22,7 +22,9 @@ echo "Application Version: '%appver%'"
 
 rem https://medium.com/@joshroppo/setting-go-1-5-variables-at-compile-time-for-versioning-5b30a965d33e
 for /f %%i in ('git describe --long --tags --dirty --always') do set gitver=%%i
-for /f %%i in ('git describe --tags') do set VERSION=%%i
+for /f %%i in ('git describe --tags 2^>NUL') do set VERSION=%%i
+if "%VERSION%" == "" ( set "VERSION=%appver%")
+echo VERSION='%VERSION%'
 set "snap=FALSE"
 set "askForNewSnapshot=FALSE"
 if not "%VERSION:-=%" == "%VERSION%" (
