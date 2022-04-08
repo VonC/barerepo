@@ -57,7 +57,7 @@ func main() {
 	err := ctx.Run(&Context{CLI: &cli})
 	fatal("gitcred Unable to run:", err)
 
-	fmt.Println("barerepo")
+	fmt.Println("\n------\nbarerepo")
 }
 
 func (v *VersionCmd) Run(c *Context) error {
