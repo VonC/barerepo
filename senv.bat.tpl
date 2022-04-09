@@ -8,6 +8,7 @@ doskey a=all.bat $*
 doskey b=build.bat $*
 doskey r=run.bat $*
 doskey p=publish.bat $*
+doskey t=test.bat $*
 
 doskey arel=all.bat rel $*
 doskey brel=build.bat rel $*
