@@ -6,12 +6,13 @@ package filequeue
 import (
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/VonC/barerepo/internal/print"
 )
 
 // Queue implements a FIFO Queue backed with files so that multiple
@@ -19,7 +20,7 @@ import (
 // same filesystem (which may be NFS-mounted).
 type Queue interface {
 	Len() (int, error)
-	Pop() ([]byte, error)
+	Pop() ([]byte, DropFunc, error)
 	Push([]byte) error
 }
 
@@ -39,7 +40,7 @@ func New(baseDir string, ofs fs.FS) (Queue, error) {
 		baseDir: baseDir,
 		ofs:     ofs,
 	}
-
+	print.Printf(fmt.Sprintf("New file queue: '%s'", baseDir))
 	return fq, err
 }
 
@@ -63,45 +64,40 @@ func (fq *FileQueue) Len() (int, error) {
 	return len(items), nil
 }
 
+type DropFunc func() error
+
 // Pop returns the least-recently added item, if available.
 //
 // In the case of an empty queue, the return value will be nil and
 // there will not be an error. If an item is popped, presumably by
 // another consumer, before it may be read, then the next available
 // item known at the time the item list was built will be tried.
-func (fq *FileQueue) Pop() ([]byte, error) {
+func (fq *FileQueue) Pop() ([]byte, DropFunc, error) {
 	items, err := fq.listItemsSorted()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
+	print.Printf(fmt.Sprintf("Load queue len: '%d'", len(items)))
 	if len(items) == 0 {
-		return nil, nil
+		return nil, nil, nil
 	}
 
-	for _, loopItem := range items {
-		item := loopItem
+	item := items[0]
 
-		fullPath := filepath.Join(fq.baseDir, item)
-		tmpPath := fmt.Sprintf("%s.pop-%v", fullPath, rand.Float64())
+	fullPath := filepath.Join(fq.baseDir, item)
 
-		if err := os.Rename(fullPath, tmpPath); err != nil {
-			continue
-		}
-
-		itemBytes, err := os.ReadFile(tmpPath)
-		if err != nil {
-			return nil, err
-		}
-
-		if err := os.Remove(tmpPath); err != nil {
-			return nil, err
-		}
-
-		return itemBytes, nil
+	itemBytes, err := os.ReadFile(fullPath)
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return nil, nil
+	return itemBytes, func() error {
+			err := os.Remove(fullPath)
+			return err
+		},
+		nil
+
 }
 
 // Push writes the item bytes to a timestamped file, returning any
