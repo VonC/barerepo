@@ -50,7 +50,7 @@ func TestQueue(t *testing.T) {
 }
 
 func process(c *commits.Commit) error {
-	print.Printf(fmt.Sprintf("Process commit %s\n", c.String()))
+	print.Printf(fmt.Sprintf("Process TEST commit %s", c.String()))
 	time.Sleep(2 * time.Second)
 	return nil
 }
