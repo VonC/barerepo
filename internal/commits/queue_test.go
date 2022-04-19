@@ -30,7 +30,7 @@ func TestQueue(t *testing.T) {
 			t.Fatalf("unable to get the current FS")
 		}
 	*/
-	commits.Printf(fmt.Sprintf("test done"))
+	commits.Printf(fmt.Sprintf("Start test"))
 	var q commits.Queue
 	if q, err = commits.NewQueue("test", ofs, process); err != nil {
 		t.Fatalf("Error on NewQueue: %+v", err)
