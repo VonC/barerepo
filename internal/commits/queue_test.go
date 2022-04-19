@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/VonC/barerepo/internal/commits"
+	"github.com/VonC/barerepo/internal/print"
 	"github.com/hack-pad/hackpadfs/os"
 )
 
@@ -30,7 +31,7 @@ func TestQueue(t *testing.T) {
 			t.Fatalf("unable to get the current FS")
 		}
 	*/
-	commits.Printf(fmt.Sprintf("Start test"))
+	print.Printf(fmt.Sprintf("Start test"))
 	var q commits.Queue
 	if q, err = commits.NewQueue("test", ofs, process); err != nil {
 		t.Fatalf("Error on NewQueue: %+v", err)
@@ -45,10 +46,10 @@ func TestQueue(t *testing.T) {
 	time.Sleep(3 * time.Second)
 	q.Stop()
 	time.Sleep(1 * time.Second)
-	commits.Printf(fmt.Sprintf("test done"))
+	print.Printf(fmt.Sprintf("test done"))
 }
 
 func process(c *commits.Commit) {
-	commits.Printf(fmt.Sprintf("Process commit %s\n", c.String()))
+	print.Printf(fmt.Sprintf("Process commit %s\n", c.String()))
 	time.Sleep(2 * time.Second)
 }
