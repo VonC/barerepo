@@ -154,5 +154,7 @@ func Printf(msg string) {
 	defer bufStdout.Flush()
 	if err == nil {
 		fmt.Fprintf(bufStdout, "\n")
+	} else {
+		fmt.Printf("Error on Printf '%s': %+v\n", msg, err)
 	}
 }
