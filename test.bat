@@ -12,4 +12,4 @@ rem @echo on
 if not "%PAGER_LOG%" == "" (
     del "%PAGER_LOG%" 2>NUL
 )
-go test -timeout 30s -run ^TestQueue$ github.com/VonC/barerepo/internal/commits
+go test -v -timeout 30s -run ^TestQueue$ github.com/VonC/barerepo/internal/commits
