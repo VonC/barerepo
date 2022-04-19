@@ -21,10 +21,10 @@ type queue struct {
 	cancelChan  chan struct{}
 	state       *state
 	fq          filequeue.Queue
-	processFunc func(*Commit)
+	processFunc func(*Commit) error
 }
 
-func NewQueue(basedir string, fs fs.FS, process func(*Commit)) (*queue, error) {
+func NewQueue(basedir string, fs fs.FS, process func(*Commit) error) (*queue, error) {
 	fq, err := filequeue.New(basedir, fs)
 	if err != nil {
 		return nil, err
@@ -86,8 +86,10 @@ func (q *queue) Run() {
 	// https://www.opsdash.com/blog/job-queues-in-go.html
 	go func() {
 		var c *Commit
+		var dropFunc filequeue.DropFunc
 		for {
 			q.state.RLock()
+			dropFunc = nil
 			select {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
@@ -98,7 +100,7 @@ func (q *queue) Run() {
 				print.Printf(fmt.Sprintf("RUN: Commit received '%s'\n", c))
 			default:
 				if c == nil {
-					c = q.load()
+					c, dropFunc = q.load()
 					if c == nil {
 						if q.state.fileOnly {
 							print.Printf(fmt.Sprintf("Reset fileOnly to false"))
@@ -108,7 +110,9 @@ func (q *queue) Run() {
 				}
 			}
 			q.state.RUnlock()
-			q.process(c)
+			if err := q.process(c, dropFunc); err != nil {
+				print.Printf(fmt.Sprintf("Unable to process commit '%s': error '%+v'", c, err))
+			}
 		}
 	}()
 }
@@ -118,30 +122,35 @@ func (q *queue) Stop() {
 	q.cancelChan <- struct{}{}
 }
 
-func (q *queue) process(c *Commit) {
+func (q *queue) process(c *Commit, dropFunc filequeue.DropFunc) error {
 	if c == nil {
-		return
+		return nil
 	}
 	print.Printf(fmt.Sprintf("Processing %s\n", c))
 	if q.processFunc != nil {
-		q.processFunc(c)
+		if err := q.processFunc(c); err != nil {
+			return err
+		}
+		if dropFunc != nil {
+			return dropFunc()
+		}
 	}
-	return
+	return nil
 }
 
-func (q *queue) load() *Commit {
-	b, err := q.fq.Pop()
+func (q *queue) load() (*Commit, filequeue.DropFunc) {
+	b, dropFunc, err := q.fq.Pop()
 	res := &Commit{}
 	if err == nil && b != nil {
 		err = json.Unmarshal(b, res)
 	}
 	if b == nil && err == nil {
-		return nil
+		return nil, nil
 	}
 	print.Printf(fmt.Sprintf("load: Commit loaded '%s', err='%+v'\n", res, err))
 	if err != nil {
-		return nil
+		return nil, nil
 	}
 	q.state.fileOnly = true
-	return res
+	return res, dropFunc
 }
