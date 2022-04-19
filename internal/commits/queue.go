@@ -117,6 +117,7 @@ func (q *queue) Run() {
 			} else {
 				print.Printf(fmt.Sprintf("Processed Commit '%s', dropFunc '%+v'", c, dropFunc))
 			}
+			c = nil
 		}
 	}()
 }
