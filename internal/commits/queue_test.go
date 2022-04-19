@@ -43,7 +43,7 @@ func TestQueue(t *testing.T) {
 	q.Add(c1)
 	q.Add(c2)
 	q.Add(c3)
-	time.Sleep(3 * time.Second)
+	time.Sleep(25 * time.Second)
 	q.Stop()
 	time.Sleep(1 * time.Second)
 	print.Printf(fmt.Sprintf("test done"))
