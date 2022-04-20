@@ -3,6 +3,8 @@ package commits
 import (
 	"fmt"
 	"time"
+
+	"github.com/VonC/barerepo/internal/print"
 )
 
 type Commit struct {
@@ -22,9 +24,10 @@ func NewCommit(message string, timestamp time.Time) *Commit {
 func (c *Commit) time() time.Time {
 	var err error
 	if c.timestamp.IsZero() {
-		c.timestamp, err = time.Parse(c.Timestamp, time.RFC3339)
+		c.timestamp, err = time.Parse(time.RFC3339, c.Timestamp)
 	}
 	if err != nil {
+		print.Printf(fmt.Sprintf("Error on commit Timestamp '%s' parsing '%+v'", c.timestamp, err))
 		c.timestamp = time.Time{}
 	}
 	return c.timestamp
