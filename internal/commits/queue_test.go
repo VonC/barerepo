@@ -43,6 +43,7 @@ func TestQueue(t *testing.T) {
 	q.Add(c1)
 	q.Add(c2)
 	q.Add(c3)
+	//t.SkipNow()
 	time.Sleep(25 * time.Second)
 	q.Stop()
 	time.Sleep(1 * time.Second)
