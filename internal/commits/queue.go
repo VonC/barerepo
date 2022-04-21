@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"sync"
+	"sync/atomic"
 
 	"github.com/VonC/barerepo/internal/filequeue"
 	"github.com/VonC/barerepo/internal/print"
@@ -41,7 +42,7 @@ func NewQueue(basedir string, fs fs.FS, process func(*Commit) error) (*queue, er
 	l, err := q.fq.Len()
 	if err == nil && l > 0 {
 		print.Printf(fmt.Sprintf("Init fileonly true: files detected"))
-		q.state.fileOnly = true
+		q.state.setFileOnly(true)
 	}
 	return q, nil
 }
@@ -51,7 +52,7 @@ func (q *queue) Add(c *Commit) error {
 	q.state.RLock()
 	defer q.state.RUnlock()
 	print.Printf(fmt.Sprintf("ADD: Add commit %s", c))
-	if q.state.fileOnly {
+	if q.state.isFileOnly() {
 		print.Printf(fmt.Sprintf("ADD: fileonly"))
 		return q.save(c)
 	}
@@ -60,7 +61,7 @@ func (q *queue) Add(c *Commit) error {
 		print.Printf(fmt.Sprintf("ADD: Commit sent to queue '%s'", c))
 		return nil
 	default:
-		q.state.fileOnly = true
+		q.state.setFileOnly(true)
 		print.Printf(fmt.Sprintf("ADD: set fileony, save '%s'", c))
 		return q.save(c)
 	}
@@ -70,6 +71,17 @@ type state struct {
 	// https://stackoverflow.com/questions/52863273/how-to-make-a-variable-thread-safe
 	sync.RWMutex
 	fileOnly bool
+	atomic.Value
+}
+
+// https://stackoverflow.com/questions/52863273/how-to-make-a-variable-thread-safe
+// https://stackoverflow.com/questions/39123453/concurrently-how-to-manage-values-states-and-avoiding-a-race-condition
+func (s *state) isFileOnly() bool {
+	return s.fileOnly
+}
+
+func (s *state) setFileOnly(fo bool) {
+	s.Store(fo)
 }
 
 func (q *queue) save(c *Commit) error {
@@ -102,9 +114,9 @@ func (q *queue) Run() {
 				if c == nil {
 					c, dropFunc = q.load()
 					if c == nil {
-						if q.state.fileOnly {
+						if q.state.isFileOnly() {
 							print.Printf(fmt.Sprintf("Reset fileOnly to false"))
-							q.state.fileOnly = false
+							q.state.setFileOnly(false)
 						}
 					} else {
 						print.Printf(fmt.Sprintf("load from filequeue Commit '%s', dropFunc '%+v'", c, dropFunc))
@@ -161,6 +173,6 @@ func (q *queue) load() (*Commit, filequeue.DropFunc) {
 	if err != nil {
 		return nil, nil
 	}
-	q.state.fileOnly = true
+	q.state.setFileOnly(true)
 	return res, dropFunc
 }
