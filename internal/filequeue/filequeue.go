@@ -6,7 +6,6 @@ package filequeue
 import (
 	"fmt"
 	"io/fs"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"sort"
@@ -88,18 +87,13 @@ func (fq *FileQueue) Pop() ([]byte, DropFunc, error) {
 
 	fullPath := filepath.Join(fq.baseDir, item)
 
-	tmpPath := fmt.Sprintf("%s.pop-%v", fullPath, rand.Float64())
-	if err := os.Rename(fullPath, tmpPath); err != nil {
-		return nil, nil, err
-	}
-
-	itemBytes, err := os.ReadFile(tmpPath)
+	itemBytes, err := os.ReadFile(fullPath)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	return itemBytes, func() error {
-			err := os.Remove(tmpPath)
+			err := os.Remove(fullPath)
 			return err
 		},
 		nil
