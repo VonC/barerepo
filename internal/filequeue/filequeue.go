@@ -102,19 +102,27 @@ func (fq *FileQueue) Pop() ([]byte, DropFunc, error) {
 
 // Push writes the item bytes to a timestamped file, returning any
 // error from os.WriteFile.
+// https://www.joeshaw.org/dont-defer-close-on-writable-files/
 func (fq *FileQueue) Push(b []byte) error {
 	fullPath := filepath.Join(
 		fq.baseDir,
 		fmt.Sprintf("%v.item", time.Now().UnixNano()),
 	)
 
-	var err error
-	if _, err = os.Create(fullPath); err != nil {
+	f, err := os.Create(fullPath)
+	if err != nil {
 		return err
 	}
 
-	err = os.WriteFile(fullPath, b, 0755)
-	return err
+	if err = os.WriteFile(fullPath, b, 0755); err != nil {
+		f.Close()
+		return err
+	}
+	if err = f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	return f.Close()
 }
 
 func (fq *FileQueue) listItemsSorted() ([]string, error) {
