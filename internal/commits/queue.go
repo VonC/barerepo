@@ -18,9 +18,11 @@ type Queue interface {
 }
 
 type queue struct {
-	commitChan  chan *Commit
-	cancelChan  chan struct{}
-	state       *state
+	commitChan chan *Commit
+	cancelChan chan struct{}
+	sync.RWMutex
+	fileOnly bool
+	atomic.Value
 	fq          filequeue.Queue
 	processFunc func(*Commit) error
 }
@@ -31,28 +33,26 @@ func NewQueue(basedir string, fs fs.FS, process func(*Commit) error) (*queue, er
 		return nil, err
 	}
 	q := &queue{
-		commitChan: make(chan *Commit, 1),
-		cancelChan: make(chan struct{}),
-		state: &state{
-			fileOnly: false,
-		},
+		commitChan:  make(chan *Commit, 1),
+		cancelChan:  make(chan struct{}),
+		fileOnly:    false,
 		fq:          fq,
 		processFunc: process,
 	}
 	l, err := q.fq.Len()
 	if err == nil && l > 0 {
 		print.Printf(fmt.Sprintf("Init fileonly true: files detected"))
-		q.state.setFileOnly(true)
+		q.Store(true)
 	}
 	return q, nil
 }
 
 // Add a commit to the queue, to be processed (or saved to disk if program stops too soon)
 func (q *queue) Add(c *Commit) error {
-	q.state.RLock()
-	defer q.state.RUnlock()
+	q.RLock()
+	defer q.RUnlock()
 	print.Printf(fmt.Sprintf("ADD: Add commit %s", c))
-	if q.state.isFileOnly() {
+	if q.fileOnly {
 		print.Printf(fmt.Sprintf("ADD: fileonly"))
 		return q.save(c)
 	}
@@ -61,27 +61,10 @@ func (q *queue) Add(c *Commit) error {
 		print.Printf(fmt.Sprintf("ADD: Commit sent to queue '%s'", c))
 		return nil
 	default:
-		q.state.setFileOnly(true)
+		q.Store(true)
 		print.Printf(fmt.Sprintf("ADD: set fileony, save '%s'", c))
 		return q.save(c)
 	}
-}
-
-type state struct {
-	// https://stackoverflow.com/questions/52863273/how-to-make-a-variable-thread-safe
-	sync.RWMutex
-	fileOnly bool
-	atomic.Value
-}
-
-// https://stackoverflow.com/questions/52863273/how-to-make-a-variable-thread-safe
-// https://stackoverflow.com/questions/39123453/concurrently-how-to-manage-values-states-and-avoiding-a-race-condition
-func (s *state) isFileOnly() bool {
-	return s.fileOnly
-}
-
-func (s *state) setFileOnly(fo bool) {
-	s.Store(fo)
 }
 
 func (q *queue) save(c *Commit) error {
@@ -100,13 +83,13 @@ func (q *queue) Run() {
 		var c *Commit
 		var dropFunc filequeue.DropFunc
 		for {
-			q.state.RLock()
+			q.RLock()
 			dropFunc = nil
 			select {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
 				print.Printf(fmt.Sprintf("Number commits left in channel: %d", len(q.commitChan)))
-				q.state.RUnlock()
+				q.RUnlock()
 				return
 			case c = <-q.commitChan:
 				print.Printf(fmt.Sprintf("RUN: Commit received '%s'", c))
@@ -114,16 +97,16 @@ func (q *queue) Run() {
 				if c == nil {
 					c, dropFunc = q.load()
 					if c == nil {
-						if q.state.isFileOnly() {
+						if q.fileOnly {
 							print.Printf(fmt.Sprintf("Reset fileOnly to false"))
-							q.state.setFileOnly(false)
+							q.Store(false)
 						}
 					} else {
 						print.Printf(fmt.Sprintf("load from filequeue Commit '%s', dropFunc '%+v'", c, dropFunc))
 					}
 				}
 			}
-			q.state.RUnlock()
+			q.RUnlock()
 			if err := q.process(c, dropFunc); err != nil {
 				print.Printf(fmt.Sprintf("Unable to process commit '%s': error '%+v'", c, err))
 			} else if c != nil {
@@ -173,6 +156,6 @@ func (q *queue) load() (*Commit, filequeue.DropFunc) {
 	if err != nil {
 		return nil, nil
 	}
-	q.state.setFileOnly(true)
+	q.Store(true)
 	return res, dropFunc
 }
