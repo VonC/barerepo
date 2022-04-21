@@ -2,7 +2,6 @@ package commits
 
 import (
 	"fmt"
-	"os"
 	"time"
 
 	"github.com/VonC/barerepo/internal/print"
