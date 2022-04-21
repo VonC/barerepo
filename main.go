@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/VonC/barerepo/version"
 	"github.com/alecthomas/kong"
@@ -55,9 +56,9 @@ func main() {
 	}
 
 	err := ctx.Run(&Context{CLI: &cli})
-	fatal("gitcred Unable to run:", err)
+	fatal(fmt.Sprintf("%s Unable to run:", os.Args[0]), err)
 
-	fmt.Println("\n------\nbarerepo")
+	fmt.Printf("\n------\n%s\n", os.Args[0])
 }
 
 func (v *VersionCmd) Run(c *Context) error {
