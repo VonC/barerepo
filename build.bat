@@ -144,7 +144,7 @@ if "%1" == "amd" (
 )
 
 %_info% "Start Building"
-go build %fflag%-ldflags "-X %module_name%/version.GitTag=%gitver% -X %module_name%/version.BuildUser=%USERNAME% -X %module_name%/version.Version=%VERSION% -X %module_name%/version.BuildDate=%dtStamp%" -o %outputname%
+go build -race %fflag%-ldflags "-X %module_name%/version.GitTag=%gitver% -X %module_name%/version.BuildUser=%USERNAME% -X %module_name%/version.Version=%VERSION% -X %module_name%/version.BuildDate=%dtStamp%" -o %outputname%
 
 if errorlevel 1 (
     %_fatal% "ERROR BUILD %dirname%" 3
