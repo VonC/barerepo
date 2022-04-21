@@ -151,6 +151,8 @@ func (q *queue) load() (*Commit, filequeue.DropFunc) {
 	res := &Commit{}
 	if err == nil && b != nil {
 		err = json.Unmarshal(b, res)
+	} else {
+		res = nil
 	}
 	if b == nil && err == nil {
 		return nil, nil
