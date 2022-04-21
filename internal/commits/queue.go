@@ -114,7 +114,7 @@ func (q *queue) Run() {
 			q.state.RUnlock()
 			if err := q.process(c, dropFunc); err != nil {
 				print.Printf(fmt.Sprintf("Unable to process commit '%s': error '%+v'", c, err))
-			} else {
+			} else if c != nil {
 				print.Printf(fmt.Sprintf("Processed Commit '%s', dropFunc '%+v'", c, dropFunc))
 			}
 			c = nil
