@@ -2,6 +2,7 @@ package commits
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/VonC/barerepo/internal/print"
@@ -27,7 +28,7 @@ func (c *Commit) time() time.Time {
 		c.timestamp, err = time.Parse(time.RFC3339, c.Timestamp)
 	}
 	if err != nil {
-		print.Printf(fmt.Sprintf("Error on commit Timestamp '%s' parsing '%+v'", c.timestamp, err))
+		print.Printf(fmt.Sprintf("Error on commit Timestamp '%s' parsing '%+v'", c.Timestamp, err))
 		c.timestamp = time.Time{}
 	}
 	return c.timestamp
