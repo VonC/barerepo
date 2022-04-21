@@ -2,7 +2,6 @@ package commits
 
 import (
 	"encoding/json"
-	"fmt"
 	"io/fs"
 	"sync"
 	"sync/atomic"
@@ -41,7 +40,7 @@ func NewQueue(basedir string, fs fs.FS, process func(*Commit) error) (*queue, er
 	}
 	l, err := q.fq.Len()
 	if err == nil && l > 0 {
-		print.Printf(fmt.Sprintf("Init fileonly true: files detected"))
+		print.Printf("Init fileonly true: files detected")
 		q.Store(true)
 	}
 	return q, nil
@@ -51,18 +50,18 @@ func NewQueue(basedir string, fs fs.FS, process func(*Commit) error) (*queue, er
 func (q *queue) Add(c *Commit) error {
 	q.RLock()
 	defer q.RUnlock()
-	print.Printf(fmt.Sprintf("ADD: Add commit %s", c))
+	print.Printf("ADD: Add commit %s", c)
 	if q.fileOnly {
-		print.Printf(fmt.Sprintf("ADD: fileonly"))
+		print.Printf("ADD: fileonly")
 		return q.save(c)
 	}
 	select {
 	case q.commitChan <- c:
-		print.Printf(fmt.Sprintf("ADD: Commit sent to queue '%s'", c))
+		print.Printf("ADD: Commit sent to queue '%s'", c)
 		return nil
 	default:
 		q.Store(true)
-		print.Printf(fmt.Sprintf("ADD: set fileony, save '%s'", c))
+		print.Printf("ADD: set fileony, save '%s'", c)
 		return q.save(c)
 	}
 }
@@ -72,7 +71,7 @@ func (q *queue) save(c *Commit) error {
 	if err == nil {
 		err = q.fq.Push(b)
 	}
-	print.Printf(fmt.Sprintf("save: b: '%s', err '%+v'", string(b), err))
+	print.Printf("save: b: '%s', err '%+v'", string(b), err)
 	return err
 }
 
@@ -88,29 +87,29 @@ func (q *queue) Run() {
 			select {
 			case <-q.cancelChan:
 				// TODO save remaining job from channel to file, after loading existing files
-				print.Printf(fmt.Sprintf("Number commits left in channel: %d", len(q.commitChan)))
+				print.Printf("Number commits left in channel: %d", len(q.commitChan))
 				q.RUnlock()
 				return
 			case c = <-q.commitChan:
-				print.Printf(fmt.Sprintf("RUN: Commit received '%s'", c))
+				print.Printf("RUN: Commit received '%s'", c)
 			default:
 				if c == nil {
 					c, dropFunc = q.load()
 					if c == nil {
 						if q.fileOnly {
-							print.Printf(fmt.Sprintf("Reset fileOnly to false"))
+							print.Printf("Reset fileOnly to false")
 							q.Store(false)
 						}
 					} else {
-						print.Printf(fmt.Sprintf("load from filequeue Commit '%s', dropFunc '%+v'", c, dropFunc))
+						print.Printf("load from filequeue Commit '%s', dropFunc '%+v'", c, dropFunc)
 					}
 				}
 			}
 			q.RUnlock()
 			if err := q.process(c, dropFunc); err != nil {
-				print.Printf(fmt.Sprintf("Unable to process commit '%s': error '%+v'", c, err))
+				print.Printf("Unable to process commit '%s': error '%+v'", c, err)
 			} else if c != nil {
-				print.Printf(fmt.Sprintf("Processed Commit '%s', dropFunc '%+v'", c, dropFunc))
+				print.Printf("Processed Commit '%s', dropFunc '%+v'", c, dropFunc)
 			}
 			c = nil
 		}
@@ -126,17 +125,17 @@ func (q *queue) process(c *Commit, dropFunc filequeue.DropFunc) error {
 	if c == nil {
 		return nil
 	}
-	print.Printf(fmt.Sprintf("Processing %s, dropfunc %v", c, dropFunc))
+	print.Printf("Processing %s, dropfunc %+v", c, dropFunc)
 	if q.processFunc != nil {
 		if err := q.processFunc(c); err != nil {
 			return err
 		}
 		if dropFunc != nil {
-			print.Printf(fmt.Sprintf("Calling DropFunc on %s", c))
+			print.Printf("Calling DropFunc on %s", c)
 			return dropFunc()
 		}
 	} else {
-		print.Printf(fmt.Sprintf("nil processFunc: NO Processing %s", c))
+		print.Printf("nil processFunc: NO Processing %s", c)
 	}
 	return nil
 }
@@ -152,7 +151,7 @@ func (q *queue) load() (*Commit, filequeue.DropFunc) {
 	if b == nil && err == nil {
 		return nil, nil
 	}
-	print.Printf(fmt.Sprintf("load: Commit loaded '%s', err='%+v'", res, err))
+	print.Printf("load: Commit loaded '%s', err='%+v'", res, err)
 	if err != nil {
 		return nil, nil
 	}

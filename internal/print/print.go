@@ -9,8 +9,13 @@ import (
 	"strings"
 )
 
-func Printf(msg string) {
-	msg = fmt.Sprintf("[%d] %s", goid(), msg)
+func Printf(format string, a ...any) {
+	// https://stackoverflow.com/a/25322013/6309 , https://stackoverflow.com/questions/8605446/appending-items-to-a-variadic-function-wrapper-without-reallocating-a-new-slice
+	// https://go.dev/play/p/xXEO58BJoA
+	a = append(a, "a")
+	copy(a[1:], a[0:])
+	a[0] = goid()
+	msg := fmt.Sprintf("[%d] "+format, a...)
 	// https://github.com/golang/go/issues/36619
 	bufStdout := bufio.NewWriter(os.Stdout)
 	_, err := bufStdout.WriteString(msg)

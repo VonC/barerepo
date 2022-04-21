@@ -1,7 +1,6 @@
 package commits_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -31,7 +30,7 @@ func TestQueue(t *testing.T) {
 			t.Fatalf("unable to get the current FS")
 		}
 	*/
-	print.Printf(fmt.Sprintf("Start test"))
+	print.Printf("Start test")
 	var q commits.Queue
 	if q, err = commits.NewQueue("test", ofs, process); err != nil {
 		t.Fatalf("Error on NewQueue: %+v", err)
@@ -47,11 +46,11 @@ func TestQueue(t *testing.T) {
 	time.Sleep(25 * time.Second)
 	q.Stop()
 	time.Sleep(1 * time.Second)
-	print.Printf(fmt.Sprintf("test done"))
+	print.Printf("test done")
 }
 
 func process(c *commits.Commit) error {
-	print.Printf(fmt.Sprintf("Process TEST commit %s", c.String()))
+	print.Printf("Process TEST commit %s", c.String())
 	time.Sleep(2 * time.Second)
 	return nil
 }
